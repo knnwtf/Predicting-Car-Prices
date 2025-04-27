@@ -1,0 +1,170 @@
+---
+title: "**Predicting Car Prices**"
+author: "*Eric Nguyen*"
+date: "*2025-04-27*"
+output: html_document
+---
+
+### **General Introduction of the Project**
+#### Introduction
+[...]
+
+#### Purpose
+[...]
+
+#### Future Developments
+[...]
+
+#### Libraries used
+`readr`, `tidyr`, `dplyr`, `tibble`, `tidyverse`, `purrr`, `caret`, `ggplot2``
+
+### **Implementing**
+#### Loading libraries
+``` {r, message = FALSE, warning = FALSE}
+library(tidyr)
+library(readr)
+library(dplyr)
+library(tibble)
+library(tidyverse)
+library(purrr)
+library(caret)
+library(ggplot2)
+```
+
+#### Bringing in the dataset
+``` {r}
+cars <- read_csv("C:\\Users\\nguye\\Documents\\Coding\\Personal Projects\\R\\Predicting Car Prices\\data\\imports-85.data")
+
+head(cars, 10)
+colnames(cars)
+```
+
+As we can see, the column names are wrongly read. Therefore, we'll rename the column names properly.
+
+``` {r}
+colnames(cars) = c(
+  "symboling",
+  "normalized_losses",
+  "make",
+  "fuel_type",
+  "aspiration",
+  "num_doors",
+  "body_style",
+  "drive_wheels",
+  "engine_location",
+  "wheel_base",
+  "length",
+  "width",
+  "height",
+  "curb_weight",
+  "engine_type",
+  "num_cylinders",
+  "engine_size",
+  "fuel_system",
+  "bore",
+  "stroke",
+  "compression_ratio",
+  "horsepower",
+  "peak_rpm",
+  "city_mpg",
+  "highway_mpg",
+  "price"
+)
+
+colnames(cars)
+head(cars, 10)
+```
+
+#### Removing non-numeric columns and missing datas
+``` {r}
+cars <- cars %>%
+  select(
+    symboling, 
+    wheel_base, 
+    length, width, 
+    height, 
+    curb_weight,
+    engine_size, 
+    bore, 
+    stroke, 
+    compression_ratio, 
+    horsepower, 
+    peak_rpm, 
+    city_mpg, 
+    highway_mpg, 
+    price
+  ) %>%
+  filter(
+    stroke != "?",
+    bore != "?",
+    horsepower != "?",
+    peak_rpm != "?",
+    price != "?",
+  ) %>%
+  mutate(
+    stroke = as.numeric(stroke),
+    bore = as.numeric(bore),
+    horsepower = as.numeric(horsepower),
+    peak_rpm = as.numeric(peak_rpm),
+    price = as.numeric(price),
+  )
+```
+
+Double-checking if all the columns are numeric.
+
+``` {r}
+map(cars, typeof)
+```
+
+#### Examining relationships between predictors
+``` {r}
+featurePlot(cars, cars$price)
+```
+
+There seems to be a fairly-strong positive linear relationship between variable `price` and `horsepower`, `curb_weight`, `engine_size`, `length` and `width`. A slightly-weaker same relationship occurs with the variable `wheel_base`.
+
+On the other hand, variable `city_mpg` and `highway_mpg`have a negative linear relationship with the `price`.
+
+The other variables are likely to have no relationship at all with the `price`.
+
+#### Distribution of the `price` outcome
+``` {r, message = FALSE}
+ggplot(cars, aes(x = price)) +
+  geom_histogram(color = "white") +
+  labs(
+    title = "Distribution of prices in cars dataset",
+    x = "Price",
+    y = "Frequency"
+  )
+```
+
+There seems to be no outliers due to the evenly distribution of the prices in the dataset.
+
+#### Setting up the train-test split
+``` {r}
+split_indices <- createDataPartition(cars$price, p = 0.8, list = FALSE)
+train_cars <- cars[split_indices, ]
+test_cars <- cars[-split_indices, ]
+```
+
+#### Cross-validation and Hyperarameter Optimization
+``` {r}
+five_fold_control <- trainControl(method = "cv", number = 5)
+tuning_grid <- expand.grid(k = 1:20)
+```
+
+#### Experimenting with different models
+``` {r}
+full_model <- train(price ~ .,
+                    data = train_cars,
+                    method = "knn",
+                    trControl = five_fold_control,
+                    tuneGrid = tuning_grid,
+                    preProcess = c("center", "scale"))
+```
+
+#### Final model evaluation
+``` {r}
+predictions <- predict(full_model, newdata = test_cars)
+postResample(pred = predictions, obs = test_cars$price)
+```
